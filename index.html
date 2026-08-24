@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#111111">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>ポケモン バーコードスキャナー</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app">
+    <div id="scanner" aria-label="カメラ映像"></div>
+    <div class="shade" aria-hidden="true"></div>
+
+    <section id="scan-ui" class="scan-ui" aria-live="polite">
+      <div class="message" id="message">バーコードを<br>きいろい わくに<br>うつしてね！</div>
+      <div class="scan-frame" aria-hidden="true">
+        <span class="scan-line"></span>
+      </div>
+      <div class="progress" id="progress">● ○ ○</div>
+    </section>
+
+    <section id="start-panel" class="panel">
+      <div class="panel-card">
+        <div class="pokeball" aria-hidden="true"></div>
+        <h1>バーコードを<br>みつけよう！</h1>
+        <button id="start-button" type="button">カメラを<br>はじめる</button>
+        <p>カメラを「許可」してね</p>
+      </div>
+    </section>
+
+    <section id="result-panel" class="panel hidden" aria-live="assertive">
+      <div class="result-card">
+        <p class="success">みつけた！</p>
+        <p id="result-code" class="result-code"></p>
+        <button id="restart-button" type="button">もういちど</button>
+      </div>
+    </section>
+
+    <section id="error-panel" class="panel hidden" aria-live="assertive">
+      <div class="panel-card error-card">
+        <h2>カメラを<br>つかえなかったよ</h2>
+        <p id="error-message">Safariの設定で<br>カメラを許可してね</p>
+        <button id="retry-button" type="button">もういちど</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2@1.12.1/dist/quagga.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

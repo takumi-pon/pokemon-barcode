@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><title>scanner tests</title></head>
+<body><div id="start-panel"></div><div id="result-panel" class="hidden"></div><div id="error-panel" class="hidden"></div><div id="result-code"></div><div id="progress"></div><button id="start-button"></button><button id="retry-button"></button><button id="restart-button"></button><div id="scanner"></div>
+<script>window.Quagga={onDetected(){},init(){},start(){},stop(){}};</script>
+<script src="app.js"></script>
+<script>
+  const t = window.BarcodeScannerTest;
+  const cases = [
+    ["4901234567894", true],
+    ["4901234567890", false],
+    ["55123457", true],
+    ["55123458", false],
+    ["abc", false]
+  ];
+  const failures = cases.filter(([code, expected]) => t.hasValidEanCheckDigit(code) !== expected);
+  t.resetHits();
+  const sequence = [t.registerDetection("4901234567894", 100), t.registerDetection("4901234567894", 200), t.registerDetection("4901234567894", 300)];
+  if (sequence.join() !== "false,false,true") failures.push(["three-hit confirmation", sequence]);
+  document.body.dataset.result = failures.length ? "fail" : "pass";
+  document.body.textContent = failures.length ? JSON.stringify(failures) : "PASS";
+</script></body></html>
