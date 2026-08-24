@@ -3,6 +3,8 @@
 
   const REQUIRED_HITS = 3;
   const HIT_WINDOW_MS = 1600;
+  const REQUEST_TIMEOUT_MS = 20000;
+  const GAS_URL = "https://script.google.com/macros/s/AKfycbwt8qpH-lqXPNC74yQlDFDRYOXaRYbCv1R_bpvfmyqrrZKYoVDk3nkw6GcAD-_dn2Te/exec";
   const state = { code: "", hits: 0, lastSeenAt: 0, running: false, confirmed: false };
 
   const $ = (id) => document.getElementById(id);
@@ -11,6 +13,10 @@
   const errorPanel = $("error-panel");
   const resultCode = $("result-code");
   const progress = $("progress");
+  const pokemonLoading = $("pokemon-loading");
+  const pokemonResult = $("pokemon-result");
+  const pokemonError = $("pokemon-error");
+  const restartButton = $("restart-button");
 
   function hasValidEanCheckDigit(code) {
     if (!/^\d{8}$|^\d{13}$/.test(code)) return false;
@@ -47,12 +53,73 @@
     state.running = false;
   }
 
+  function setPokemonView(view) {
+    pokemonLoading.classList.toggle("hidden", view !== "loading");
+    pokemonResult.classList.toggle("hidden", view !== "result");
+    pokemonError.classList.toggle("hidden", view !== "error");
+    restartButton.classList.toggle("hidden", view === "loading");
+  }
+
+  function renderPokemon(pokemon) {
+    if (!pokemon || pokemon.pokemonId == null || !pokemon.nameJa) {
+      throw new Error("ポケモンのデータが足りません。");
+    }
+
+    const image = $("pokemon-image");
+    if (pokemon.imageUrl) image.src = pokemon.imageUrl;
+    else image.removeAttribute("src");
+    image.alt = `${pokemon.nameJa}の画像`;
+    image.classList.toggle("hidden", !pokemon.imageUrl);
+    $("pokemon-name").textContent = pokemon.nameJa;
+    $("pokemon-number").textContent = `No.${pokemon.pokemonId}`;
+
+    const types = Array.isArray(pokemon.typesJa)
+      ? pokemon.typesJa
+      : String(pokemon.typesJa || "").split(/[,、/\s]+/).filter(Boolean);
+    const typeList = $("pokemon-types");
+    typeList.replaceChildren(...types.map((type) => {
+      const badge = document.createElement("span");
+      badge.textContent = type;
+      return badge;
+    }));
+  }
+
+  async function findPokemon(code) {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+    try {
+      const response = await fetch(GAS_URL, {
+        method: "POST",
+        body: JSON.stringify({ barcode: code }),
+        signal: controller.signal
+      });
+      if (!response.ok) throw new Error(`通信エラー (${response.status})`);
+
+      const payload = await response.json();
+      if (!payload?.ok) throw new Error(payload?.error || "ポケモンが見つかりませんでした。");
+
+      renderPokemon(payload.data);
+      setPokemonView("result");
+    } catch (error) {
+      console.error("Failed to find Pokemon:", error);
+      $("pokemon-error-message").textContent = error?.name === "AbortError"
+        ? "つうしんに じかんが かかってるみたい"
+        : "つうしんを かくにんしてね";
+      setPokemonView("error");
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
+  }
+
   function confirmCode(code) {
     state.confirmed = true;
     stopScanner();
     resultCode.textContent = code;
+    setPokemonView("loading");
     resultPanel.classList.remove("hidden");
     if (navigator.vibrate) navigator.vibrate([80, 40, 120]);
+    findPokemon(code);
   }
 
   function onDetected(result) {
@@ -123,7 +190,7 @@
   window.Quagga?.onDetected(onDetected);
   $("start-button").addEventListener("click", startScanner);
   $("retry-button").addEventListener("click", startScanner);
-  $("restart-button").addEventListener("click", startScanner);
+  restartButton.addEventListener("click", startScanner);
   window.addEventListener("pagehide", stopScanner);
 
   window.BarcodeScannerTest = { hasValidEanCheckDigit, registerDetection, resetHits, state };

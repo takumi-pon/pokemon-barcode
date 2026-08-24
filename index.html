@@ -34,8 +34,25 @@
     <section id="result-panel" class="panel hidden" aria-live="assertive">
       <div class="result-card">
         <p class="success">みつけた！</p>
-        <p id="result-code" class="result-code"></p>
-        <button id="restart-button" type="button">もういちど</button>
+        <div id="pokemon-loading" class="pokemon-status">
+          <div class="searching-ball" aria-hidden="true"></div>
+          <p>ポケモンを<br>さがしてるよ…</p>
+        </div>
+
+        <div id="pokemon-result" class="pokemon-result hidden">
+          <img id="pokemon-image" class="pokemon-image" alt="">
+          <p id="pokemon-name" class="pokemon-name"></p>
+          <p id="pokemon-number" class="pokemon-number"></p>
+          <div id="pokemon-types" class="pokemon-types" aria-label="タイプ"></div>
+          <p id="result-code" class="result-code"></p>
+        </div>
+
+        <div id="pokemon-error" class="pokemon-status pokemon-error hidden">
+          <p>ポケモンを<br>みつけられなかったよ</p>
+          <p id="pokemon-error-message" class="error-detail"></p>
+        </div>
+
+        <button id="restart-button" class="hidden" type="button">もういちど</button>
       </div>
     </section>
 
