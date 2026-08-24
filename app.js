@@ -4,7 +4,14 @@
   const REQUIRED_HITS = 3;
   const HIT_WINDOW_MS = 1600;
   const REQUEST_TIMEOUT_MS = 20000;
-  const GAS_URL = "https://script.google.com/macros/s/AKfycbwt8qpH-lqXPNC74yQlDFDRYOXaRYbCv1R_bpvfmyqrrZKYoVDk3nkw6GcAD-_dn2Te/exec";
+  const POKEAPI_URL = "https://pokeapi.co/api/v2";
+  const TYPE_NAMES_JA = {
+    normal: "ノーマル", fire: "ほのお", water: "みず", electric: "でんき",
+    grass: "くさ", ice: "こおり", fighting: "かくとう", poison: "どく",
+    ground: "じめん", flying: "ひこう", psychic: "エスパー", bug: "むし",
+    rock: "いわ", ghost: "ゴースト", dragon: "ドラゴン", dark: "あく",
+    steel: "はがね", fairy: "フェアリー"
+  };
   const state = { code: "", hits: 0, lastSeenAt: 0, running: false, confirmed: false };
 
   const $ = (id) => document.getElementById(id);
@@ -84,22 +91,41 @@
     }));
   }
 
+  async function barcodeToPokemonId(code) {
+    const bytes = new TextEncoder().encode(code);
+    const hash = await crypto.subtle.digest("SHA-256", bytes);
+    const number = new DataView(hash).getUint32(0, false);
+    return (number % 151) + 1;
+  }
+
+  async function fetchJson(url, signal) {
+    const response = await fetch(url, { signal });
+    if (!response.ok) throw new Error(`通信エラー (${response.status})`);
+    return response.json();
+  }
+
   async function findPokemon(code) {
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
     try {
-      const response = await fetch(GAS_URL, {
-        method: "POST",
-        body: JSON.stringify({ barcode: code }),
-        signal: controller.signal
+      const pokemonId = await barcodeToPokemonId(code);
+      const [pokemon, species] = await Promise.all([
+        fetchJson(`${POKEAPI_URL}/pokemon/${pokemonId}`, controller.signal),
+        fetchJson(`${POKEAPI_URL}/pokemon-species/${pokemonId}`, controller.signal)
+      ]);
+      const name = species.names?.find(({ language }) => language.name === "ja-Hrkt")
+        || species.names?.find(({ language }) => language.name === "ja");
+
+      renderPokemon({
+        pokemonId,
+        nameJa: name?.name,
+        imageUrl: pokemon.sprites?.other?.["official-artwork"]?.front_default
+          || pokemon.sprites?.front_default,
+        typesJa: pokemon.types
+          ?.sort((a, b) => a.slot - b.slot)
+          .map(({ type }) => TYPE_NAMES_JA[type.name] || type.name)
       });
-      if (!response.ok) throw new Error(`通信エラー (${response.status})`);
-
-      const payload = await response.json();
-      if (!payload?.ok) throw new Error(payload?.error || "ポケモンが見つかりませんでした。");
-
-      renderPokemon(payload.data);
       setPokemonView("result");
     } catch (error) {
       console.error("Failed to find Pokemon:", error);
@@ -193,5 +219,11 @@
   restartButton.addEventListener("click", startScanner);
   window.addEventListener("pagehide", stopScanner);
 
-  window.BarcodeScannerTest = { hasValidEanCheckDigit, registerDetection, resetHits, state };
+  window.BarcodeScannerTest = {
+    hasValidEanCheckDigit,
+    registerDetection,
+    resetHits,
+    barcodeToPokemonId,
+    state
+  };
 })();
