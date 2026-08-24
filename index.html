@@ -23,11 +23,14 @@
       <div class="progress" id="progress">● ○ ○</div>
     </section>
 
+    <button id="scan-dex-button" class="floating-dex-button" type="button">ずかん</button>
+
     <section id="start-panel" class="panel">
       <div class="panel-card">
         <div class="pokeball" aria-hidden="true"></div>
         <h1>バーコードを<br>みつけよう！</h1>
         <button id="start-button" type="button">カメラを<br>はじめる</button>
+        <button class="dex-button secondary-button" type="button">ずかん</button>
         <p>カメラを「許可」してね</p>
       </div>
     </section>
@@ -46,6 +49,9 @@
           <p id="pokemon-number" class="pokemon-number"></p>
           <div id="pokemon-types" class="pokemon-types" aria-label="タイプ"></div>
           <p id="result-code" class="result-code"></p>
+          <p id="encounter-message" class="encounter-message"></p>
+          <button id="get-button" class="get-button" type="button">GET！</button>
+          <p id="save-message" class="save-message" role="status"></p>
         </div>
 
         <div id="pokemon-error" class="pokemon-status pokemon-error hidden">
@@ -53,8 +59,30 @@
           <p id="pokemon-error-message" class="error-detail"></p>
         </div>
 
-        <button id="restart-button" class="hidden" type="button">もういちど</button>
+        <div id="result-actions" class="result-actions hidden">
+          <button class="dex-button" type="button">ずかん</button>
+          <button id="restart-button" type="button">もういちど</button>
+        </div>
       </div>
+    </section>
+
+    <section id="catch-overlay" class="catch-overlay hidden" aria-live="assertive">
+      <div id="catch-ball" class="catch-ball" aria-hidden="true"></div>
+      <p id="catch-count" class="catch-count"></p>
+      <p id="caught-message" class="caught-message"></p>
+    </section>
+
+    <section id="dex-panel" class="dex-panel hidden" aria-labelledby="dex-title">
+      <header class="dex-header">
+        <div>
+          <p class="dex-kicker">ポケモン</p>
+          <h2 id="dex-title">ずかん</h2>
+          <p id="dex-progress" class="dex-progress">GET 0 / 151</p>
+        </div>
+        <button id="dex-back-button" class="dex-back-button" type="button">もどる</button>
+      </header>
+      <p id="dex-storage-message" class="dex-storage-message" role="status"></p>
+      <div id="dex-grid" class="dex-grid"></div>
     </section>
 
     <section id="error-panel" class="panel hidden" aria-live="assertive">

@@ -157,6 +157,29 @@ button {
 }
 
 button:active { transform: translateY(6px); box-shadow: 0 2px 0 #111; }
+button:disabled { opacity: .7; cursor: default; }
+
+.secondary-button {
+  min-height: 72px;
+  margin-top: 22px;
+  background: #fff;
+  font-size: clamp(26px, 7vw, 36px);
+}
+
+.floating-dex-button {
+  position: absolute;
+  z-index: 4;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(18px, env(safe-area-inset-bottom));
+  width: auto;
+  min-width: 150px;
+  min-height: 72px;
+  padding: 8px 22px;
+  border-width: 5px;
+  border-radius: 24px;
+  font-size: 30px;
+  box-shadow: 0 6px 0 #111;
+}
 
 .pokeball {
   width: 86px;
@@ -192,6 +215,45 @@ button:active { transform: translateY(6px); box-shadow: 0 2px 0 #111; }
 
 .result-card button { background: #fff; }
 .error-card button { margin-top: 14px; }
+
+.get-button {
+  min-height: 94px;
+  margin-top: 8px;
+  background: #ef3333 !important;
+  color: #fff;
+  font-size: clamp(42px, 13vw, 66px);
+  text-shadow: 0 3px 0 #111;
+}
+
+.encounter-message {
+  min-height: 30px;
+  margin: 6px 0 0;
+  font-size: clamp(20px, 5.5vw, 28px);
+  font-weight: 1000;
+}
+
+.save-message,
+.dex-storage-message {
+  margin: 12px 0 0;
+  color: #9d0000;
+  font-size: 18px;
+  font-weight: 900;
+}
+
+.result-actions {
+  display: grid;
+  grid-template-columns: 1fr 1.35fr;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.result-actions button {
+  min-height: 76px;
+  padding: 8px;
+  font-size: clamp(24px, 7vw, 34px);
+}
+
+.result-actions .dex-button { background: #8ee8ff; }
 
 .pokemon-status {
   min-height: 280px;
@@ -265,13 +327,186 @@ button:active { transform: translateY(6px); box-shadow: 0 2px 0 #111; }
   font-size: clamp(18px, 5vw, 24px);
 }
 
+.catch-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: radial-gradient(circle, rgba(255,255,255,.75), rgba(255,214,0,.94) 55%, #e62b2b);
+  pointer-events: auto;
+}
+
+.catch-ball {
+  position: absolute;
+  left: calc(50% - 54px);
+  top: calc(48% - 54px);
+  width: 108px;
+  height: 108px;
+  border: 8px solid #111;
+  border-radius: 50%;
+  background: linear-gradient(#ef3333 0 43%, #111 43% 57%, #fff 57%);
+  box-shadow: 0 10px 0 rgba(17,17,17,.2);
+}
+
+.catch-ball::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 30px;
+  height: 30px;
+  border: 7px solid #111;
+  border-radius: 50%;
+  background: #fff;
+  transform: translate(-50%, -50%);
+}
+
+.catch-throw {
+  animation: catch-throw .6s cubic-bezier(.18,.8,.3,1) both;
+}
+
+@keyframes catch-throw {
+  from { transform: translate(-42vw, 52vh) rotate(-240deg) scale(.55); }
+  to { transform: translate(0, 0) rotate(360deg) scale(1); }
+}
+
+.catch-shake { animation: catch-shake .43s ease-in-out 3; }
+
+@keyframes catch-shake {
+  0%, 100% { transform: rotate(-12deg); }
+  50% { transform: rotate(12deg); }
+}
+
+.catch-count,
+.caught-message {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  margin: 0;
+  text-align: center;
+  font-weight: 1000;
+  color: #111;
+  text-shadow: 0 4px 0 #fff;
+}
+
+.catch-count {
+  top: 14%;
+  font-size: clamp(88px, 28vw, 150px);
+}
+
+.caught-message {
+  bottom: 13%;
+  font-size: clamp(46px, 13vw, 78px);
+  animation: caught-pop .35s ease-out both;
+}
+
+@keyframes caught-pop {
+  from { transform: scale(.4); opacity: 0; }
+}
+
+.dex-panel {
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: max(18px, env(safe-area-inset-top)) 14px max(28px, env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, #ef3333 0 230px, #fff3c4 230px);
+  color: #111;
+}
+
+.dex-header {
+  position: sticky;
+  z-index: 2;
+  top: calc(-1 * max(18px, env(safe-area-inset-top)));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: calc(-1 * max(18px, env(safe-area-inset-top))) -14px 18px;
+  padding: max(18px, env(safe-area-inset-top)) 16px 16px;
+  border-bottom: 7px solid #111;
+  background: #ef3333;
+}
+
+.dex-kicker,
+.dex-header h2,
+.dex-progress { margin: 0; }
+.dex-kicker { font-size: 16px; font-weight: 1000; }
+.dex-header h2 { font-size: clamp(42px, 12vw, 66px); line-height: .95; }
+.dex-progress { margin-top: 8px; font-size: clamp(24px, 7vw, 34px); font-weight: 1000; }
+
+.dex-back-button {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 130px;
+  min-height: 72px;
+  padding: 8px 16px;
+  border-width: 5px;
+  border-radius: 22px;
+  background: #fff;
+  font-size: clamp(25px, 7vw, 34px);
+  box-shadow: 0 6px 0 #111;
+}
+
+.dex-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  width: min(100%, 800px);
+  margin: 0 auto;
+}
+
+.dex-card {
+  min-width: 0;
+  padding: 8px 5px 10px;
+  border: 4px solid #555;
+  border-radius: 18px;
+  background: #bbb;
+  text-align: center;
+  box-shadow: 0 5px 0 #555;
+}
+
+.dex-card.is-caught {
+  border-color: #111;
+  background: #fff;
+  box-shadow: 0 5px 0 #111;
+}
+
+.dex-image {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: contain;
+  color: #666;
+  font-size: clamp(48px, 15vw, 88px);
+  font-weight: 1000;
+  filter: grayscale(1);
+}
+
+img.dex-image { filter: none; }
+.dex-number, .dex-name, .dex-count { margin: 2px 0; font-weight: 1000; }
+.dex-number { font-size: clamp(13px, 3.5vw, 18px); }
+.dex-name { overflow: hidden; font-size: clamp(15px, 4.2vw, 22px); text-overflow: ellipsis; white-space: nowrap; }
+.dex-count { color: #b40000; font-size: clamp(12px, 3.3vw, 17px); }
+
 @media (orientation: landscape) and (max-height: 520px) {
   .message { font-size: 25px; margin-bottom: 12px; }
   .scan-frame { width: 65vw; height: 30vh; min-height: 110px; }
   .progress { margin-top: 12px; font-size: 20px; }
+  .floating-dex-button { min-height: 62px; }
+}
+
+@media (min-width: 640px) {
+  .dex-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .scan-line,
-  .searching-ball { animation: none; }
+  .searching-ball,
+  .catch-ball,
+  .caught-message { animation: none; }
 }

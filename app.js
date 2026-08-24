@@ -5,6 +5,7 @@
   const HIT_WINDOW_MS = 1600;
   const REQUEST_TIMEOUT_MS = 20000;
   const POKEAPI_URL = "https://pokeapi.co/api/v2";
+  const STORAGE_KEY = "pokemon-barcode-caught-v1";
   const TYPE_NAMES_JA = {
     normal: "ノーマル", fire: "ほのお", water: "みず", electric: "でんき",
     grass: "くさ", ice: "こおり", fighting: "かくとう", poison: "どく",
@@ -12,7 +13,10 @@
     rock: "いわ", ghost: "ゴースト", dragon: "ドラゴン", dark: "あく",
     steel: "はがね", fairy: "フェアリー"
   };
-  const state = { code: "", hits: 0, lastSeenAt: 0, running: false, confirmed: false };
+  const state = {
+    code: "", hits: 0, lastSeenAt: 0, running: false, confirmed: false,
+    currentPokemon: null, catching: false, dexReturn: "start"
+  };
 
   const $ = (id) => document.getElementById(id);
   const startPanel = $("start-panel");
@@ -24,6 +28,10 @@
   const pokemonResult = $("pokemon-result");
   const pokemonError = $("pokemon-error");
   const restartButton = $("restart-button");
+  const resultActions = $("result-actions");
+  const getButton = $("get-button");
+  const dexPanel = $("dex-panel");
+  const catchOverlay = $("catch-overlay");
 
   function hasValidEanCheckDigit(code) {
     if (!/^\d{8}$|^\d{13}$/.test(code)) return false;
@@ -64,7 +72,46 @@
     pokemonLoading.classList.toggle("hidden", view !== "loading");
     pokemonResult.classList.toggle("hidden", view !== "result");
     pokemonError.classList.toggle("hidden", view !== "error");
-    restartButton.classList.toggle("hidden", view === "loading");
+    resultActions.classList.toggle("hidden", view === "loading");
+  }
+
+  function readCaughtPokemon() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+    } catch (error) {
+      console.warn("Could not read caught Pokemon:", error);
+      return {};
+    }
+  }
+
+  function saveCaughtPokemon(pokemon) {
+    const caught = readCaughtPokemon();
+    const key = String(pokemon.pokemonId);
+    const previous = caught[key];
+    caught[key] = {
+      pokemonId: pokemon.pokemonId,
+      nameJa: pokemon.nameJa,
+      imageUrl: pokemon.imageUrl || "",
+      typesJa: pokemon.typesJa,
+      firstCaughtAt: previous?.firstCaughtAt || new Date().toISOString(),
+      count: (Number(previous?.count) || 0) + 1
+    };
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(caught));
+      console.log("Pokemon caught:", caught[key]);
+      return { saved: true, record: caught[key] };
+    } catch (error) {
+      console.warn("Could not save caught Pokemon:", error);
+      return { saved: false, record: caught[key] };
+    }
+  }
+
+  function updateEncounterMessage(pokemonId) {
+    const previous = readCaughtPokemon()[String(pokemonId)];
+    $("encounter-message").textContent = previous
+      ? `また会えた！ GET ${previous.count}かい`
+      : "はじめまして！";
   }
 
   function renderPokemon(pokemon) {
@@ -89,6 +136,12 @@
       badge.textContent = type;
       return badge;
     }));
+    state.currentPokemon = { ...pokemon, typesJa: types };
+    state.catching = false;
+    getButton.disabled = false;
+    getButton.textContent = "GET！";
+    $("save-message").textContent = "";
+    updateEncounterMessage(pokemon.pokemonId);
   }
 
   async function barcodeToPokemonId(code) {
@@ -117,7 +170,7 @@
       const name = species.names?.find(({ language }) => language.name === "ja-Hrkt")
         || species.names?.find(({ language }) => language.name === "ja");
 
-      renderPokemon({
+      const pokemonData = {
         pokemonId,
         nameJa: name?.name,
         imageUrl: pokemon.sprites?.other?.["official-artwork"]?.front_default
@@ -125,7 +178,9 @@
         typesJa: pokemon.types
           ?.sort((a, b) => a.slot - b.slot)
           .map(({ type }) => TYPE_NAMES_JA[type.name] || type.name)
-      });
+      };
+      renderPokemon(pokemonData);
+      console.log("Pokemon appeared:", pokemonData);
       setPokemonView("result");
     } catch (error) {
       console.error("Failed to find Pokemon:", error);
@@ -145,7 +200,103 @@
     setPokemonView("loading");
     resultPanel.classList.remove("hidden");
     if (navigator.vibrate) navigator.vibrate([80, 40, 120]);
+    console.log("Barcode confirmed:", code);
     findPokemon(code);
+  }
+
+  const wait = (milliseconds) => new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+
+  async function catchPokemon() {
+    if (!state.currentPokemon || state.catching) return;
+    state.catching = true;
+    getButton.disabled = true;
+    catchOverlay.classList.remove("hidden");
+    $("catch-count").textContent = "";
+    $("caught-message").textContent = "";
+    $("catch-ball").className = "catch-ball catch-throw";
+    console.log("Catch animation started:", state.currentPokemon.pokemonId);
+
+    await wait(600);
+    $("catch-ball").className = "catch-ball catch-shake";
+    for (const count of ["1", "2", "3"]) {
+      $("catch-count").textContent = count;
+      if (navigator.vibrate) navigator.vibrate(45);
+      await wait(430);
+    }
+
+    $("catch-count").textContent = "";
+    $("caught-message").textContent = "つかまえた！";
+    if (navigator.vibrate) navigator.vibrate([70, 40, 70, 40, 140]);
+    const outcome = saveCaughtPokemon(state.currentPokemon);
+    getButton.textContent = "GETした！";
+    $("encounter-message").textContent = outcome.record.count > 1
+      ? `${outcome.record.count}かいめの GET！`
+      : "はじめて GET！";
+    if (!outcome.saved) {
+      $("save-message").textContent = "きろくは できなかったけど、あそべるよ";
+    }
+    await wait(900);
+    catchOverlay.classList.add("hidden");
+    state.catching = false;
+  }
+
+  function renderDex() {
+    const caught = readCaughtPokemon();
+    const caughtCount = Object.keys(caught).filter((id) => Number(id) >= 1 && Number(id) <= 151).length;
+    $("dex-progress").textContent = `GET ${caughtCount} / 151`;
+    const cards = [];
+    for (let pokemonId = 1; pokemonId <= 151; pokemonId += 1) {
+      const pokemon = caught[String(pokemonId)];
+      const card = document.createElement("article");
+      card.className = `dex-card${pokemon ? " is-caught" : ""}`;
+      const visual = document.createElement(pokemon?.imageUrl ? "img" : "div");
+      visual.className = "dex-image";
+      if (pokemon?.imageUrl) {
+        visual.src = pokemon.imageUrl;
+        visual.alt = `${pokemon.nameJa}の画像`;
+      } else {
+        visual.textContent = "?";
+        visual.setAttribute("aria-hidden", "true");
+      }
+      const number = document.createElement("p");
+      number.className = "dex-number";
+      number.textContent = `No.${pokemonId}`;
+      const name = document.createElement("p");
+      name.className = "dex-name";
+      name.textContent = pokemon?.nameJa || "???";
+      card.append(visual, number, name);
+      if (pokemon) {
+        const count = document.createElement("p");
+        count.className = "dex-count";
+        count.textContent = `GET ${pokemon.count}かい`;
+        card.append(count);
+      }
+      cards.push(card);
+    }
+    $("dex-grid").replaceChildren(...cards);
+    console.log("Pokedex opened:", { caught: caughtCount, total: 151 });
+  }
+
+  function openDex() {
+    state.dexReturn = startPanel.classList.contains("hidden") ? "scan" : "start";
+    stopScanner();
+    startPanel.classList.add("hidden");
+    resultPanel.classList.add("hidden");
+    errorPanel.classList.add("hidden");
+    $("scan-dex-button").classList.add("hidden");
+    renderDex();
+    dexPanel.classList.remove("hidden");
+    dexPanel.scrollTop = 0;
+  }
+
+  function closeDex() {
+    dexPanel.classList.add("hidden");
+    if (state.dexReturn === "start") {
+      startPanel.classList.remove("hidden");
+      $("scan-dex-button").classList.remove("hidden");
+    } else {
+      startScanner();
+    }
   }
 
   function onDetected(result) {
@@ -174,7 +325,11 @@
     startPanel.classList.add("hidden");
     errorPanel.classList.add("hidden");
     resultPanel.classList.add("hidden");
+    dexPanel.classList.add("hidden");
+    $("scan-dex-button").classList.remove("hidden");
     state.confirmed = false;
+    state.currentPokemon = null;
+    state.catching = false;
     resetHits();
 
     if (!window.Quagga) {
@@ -210,6 +365,7 @@
       }
       window.Quagga.start();
       state.running = true;
+      console.log("Scanner started");
     });
   }
 
@@ -217,6 +373,10 @@
   $("start-button").addEventListener("click", startScanner);
   $("retry-button").addEventListener("click", startScanner);
   restartButton.addEventListener("click", startScanner);
+  getButton.addEventListener("click", catchPokemon);
+  document.querySelectorAll(".dex-button").forEach((button) => button.addEventListener("click", openDex));
+  $("scan-dex-button").addEventListener("click", openDex);
+  $("dex-back-button").addEventListener("click", closeDex);
   window.addEventListener("pagehide", stopScanner);
 
   window.BarcodeScannerTest = {
@@ -224,6 +384,10 @@
     registerDetection,
     resetHits,
     barcodeToPokemonId,
+    readCaughtPokemon,
+    saveCaughtPokemon,
+    renderDex,
+    renderPokemon,
     state
   };
 })();

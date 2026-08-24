@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow,noarchive"><title>scanner tests</title></head>
-<body><div id="start-panel"></div><div id="result-panel" class="hidden"></div><div id="error-panel" class="hidden"></div><div id="result-code"></div><div id="progress"></div><div id="pokemon-loading"></div><div id="pokemon-result"></div><div id="pokemon-error"></div><div id="pokemon-error-message"></div><img id="pokemon-image"><div id="pokemon-name"></div><div id="pokemon-number"></div><div id="pokemon-types"></div><button id="start-button"></button><button id="retry-button"></button><button id="restart-button"></button><div id="scanner"></div>
+<body><div id="start-panel"></div><div id="result-panel" class="hidden"></div><div id="error-panel" class="hidden"></div><div id="dex-panel" class="hidden"></div><div id="catch-overlay" class="hidden"></div><div id="result-code"></div><div id="progress"></div><div id="pokemon-loading"></div><div id="pokemon-result"></div><div id="pokemon-error"></div><div id="pokemon-error-message"></div><div id="result-actions"></div><div id="encounter-message"></div><div id="save-message"></div><div id="catch-count"></div><div id="caught-message"></div><div id="catch-ball"></div><div id="dex-progress"></div><div id="dex-grid"></div><div id="dex-storage-message"></div><img id="pokemon-image"><div id="pokemon-name"></div><div id="pokemon-number"></div><div id="pokemon-types"></div><button id="start-button"></button><button id="retry-button"></button><button id="restart-button"></button><button id="get-button"></button><button id="scan-dex-button"></button><button id="dex-back-button"></button><div id="scanner"></div>
 <script>window.Quagga={onDetected(){},init(){},start(){},stop(){}};</script>
 <script src="app.js"></script>
 <script>
@@ -19,6 +19,23 @@
     if (sequence.join() !== "false,false,true") failures.push(["three-hit confirmation", sequence]);
     const pokemonId = await t.barcodeToPokemonId("4901234567894");
     if (pokemonId !== 24) failures.push(["SHA-256 mapping", pokemonId]);
+    const before = Number(t.readCaughtPokemon()["24"]?.count) || 0;
+    const testPokemon = { pokemonId: 24, nameJa: "アーボック", imageUrl: "https://example.test/24.png", typesJa: ["どく"] };
+    const firstSave = t.saveCaughtPokemon(testPokemon);
+    const secondSave = t.saveCaughtPokemon(testPokemon);
+    if (!firstSave.saved || firstSave.record.count !== before + 1) failures.push(["first localStorage save", firstSave]);
+    if (!secondSave.saved || secondSave.record.count !== before + 2) failures.push(["duplicate count", secondSave]);
+    if (!secondSave.record.firstCaughtAt || secondSave.record.nameJa !== "アーボック") failures.push(["saved fields", secondSave.record]);
+    t.renderDex();
+    if (document.querySelectorAll(".dex-card").length !== 151) failures.push(["Pokedex card count", document.querySelectorAll(".dex-card").length]);
+    if (!document.getElementById("dex-progress").textContent.includes("/ 151")) failures.push(["Pokedex progress", document.getElementById("dex-progress").textContent]);
+    t.renderPokemon(testPokemon);
+    document.getElementById("get-button").click();
+    await new Promise((resolve) => setTimeout(resolve, 2900));
+    const caughtThroughButton = t.readCaughtPokemon()["24"];
+    if (caughtThroughButton.count !== before + 3) failures.push(["GET button count", caughtThroughButton.count]);
+    if (!document.getElementById("get-button").disabled) failures.push(["GET button duplicate guard"]);
+    if (document.getElementById("caught-message").textContent !== "つかまえた！") failures.push(["catch animation message"]);
     document.body.dataset.result = failures.length ? "fail" : "pass";
     document.body.textContent = failures.length ? JSON.stringify(failures) : "PASS";
   })();
