@@ -6,6 +6,9 @@
   const REQUEST_TIMEOUT_MS = 20000;
   const POKEAPI_URL = "https://pokeapi.co/api/v2";
   const STORAGE_KEY = "pokemon-barcode-caught-v1";
+  const MAX_POKEMON_ID = 1025;
+  const SHINY_RATE_PERCENT = 2;
+
   const TYPE_NAMES_JA = {
     normal: "ノーマル", fire: "ほのお", water: "みず", electric: "でんき",
     grass: "くさ", ice: "こおり", fighting: "かくとう", poison: "どく",
@@ -13,6 +16,7 @@
     rock: "いわ", ghost: "ゴースト", dragon: "ドラゴン", dark: "あく",
     steel: "はがね", fairy: "フェアリー"
   };
+
   const state = {
     code: "", hits: 0, lastSeenAt: 0, running: false, confirmed: false,
     currentPokemon: null, catching: false, dexReturn: "start"
@@ -89,14 +93,39 @@
     const caught = readCaughtPokemon();
     const key = String(pokemon.pokemonId);
     const previous = caught[key];
+    const isShiny = Boolean(pokemon.isShiny);
+
+    const previousCount = Number(previous?.count) || 0;
+    const previousShinyCount = Number(previous?.shinyCount) || 0;
+    const previousNormalCount = previous?.normalCount == null
+      ? Math.max(previousCount - previousShinyCount, 0)
+      : Number(previous.normalCount) || 0;
+
+    const normalCount = previousNormalCount + (isShiny ? 0 : 1);
+    const shinyCount = previousShinyCount + (isShiny ? 1 : 0);
+    const normalImageUrl = previous?.normalImageUrl
+      || (!isShiny ? (pokemon.normalImageUrl || pokemon.imageUrl || "") : "")
+      || (!previous?.shinyCount ? previous?.imageUrl || "" : "");
+    const shinyImageUrl = previous?.shinyImageUrl
+      || (isShiny ? (pokemon.shinyImageUrl || pokemon.imageUrl || "") : "");
+
     caught[key] = {
       pokemonId: pokemon.pokemonId,
       nameJa: pokemon.nameJa,
-      imageUrl: pokemon.imageUrl || "",
+      imageUrl: normalImageUrl || previous?.imageUrl || shinyImageUrl || "",
+      normalImageUrl,
+      shinyImageUrl,
       typesJa: pokemon.typesJa,
       firstCaughtAt: previous?.firstCaughtAt || new Date().toISOString(),
-      count: (Number(previous?.count) || 0) + 1
+      firstShinyCaughtAt: previous?.firstShinyCaughtAt || (isShiny ? new Date().toISOString() : ""),
+      lastCaughtAt: new Date().toISOString(),
+      count: previousCount + 1,
+      normalCount,
+      shinyCount,
+      hasShiny: shinyCount > 0,
+      lastCaughtWasShiny: isShiny
     };
+
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(caught));
       console.log("Pokemon caught:", caught[key]);
@@ -107,8 +136,16 @@
     }
   }
 
-  function updateEncounterMessage(pokemonId) {
-    const previous = readCaughtPokemon()[String(pokemonId)];
+  function updateEncounterMessage(pokemon) {
+    const previous = readCaughtPokemon()[String(pokemon.pokemonId)];
+
+    if (pokemon.isShiny) {
+      $("encounter-message").textContent = Number(previous?.shinyCount) > 0
+        ? "✨ また色違いに会えた！"
+        : "✨✨ 色違いだ！！ ✨✨";
+      return;
+    }
+
     $("encounter-message").textContent = previous
       ? `また会えた！ GET ${previous.count}かい`
       : "はじめまして！";
@@ -122,8 +159,9 @@
     const image = $("pokemon-image");
     if (pokemon.imageUrl) image.src = pokemon.imageUrl;
     else image.removeAttribute("src");
-    image.alt = `${pokemon.nameJa}の画像`;
+    image.alt = `${pokemon.isShiny ? "色違いの" : ""}${pokemon.nameJa}の画像`;
     image.classList.toggle("hidden", !pokemon.imageUrl);
+
     $("pokemon-name").textContent = pokemon.nameJa;
     $("pokemon-number").textContent = `No.${pokemon.pokemonId}`;
 
@@ -131,24 +169,47 @@
       ? pokemon.typesJa
       : String(pokemon.typesJa || "").split(/[,、/\s]+/).filter(Boolean);
     const typeList = $("pokemon-types");
-    typeList.replaceChildren(...types.map((type) => {
+    const badges = types.map((type) => {
       const badge = document.createElement("span");
       badge.textContent = type;
       return badge;
-    }));
+    });
+
+    if (pokemon.isShiny) {
+      const shinyBadge = document.createElement("span");
+      shinyBadge.className = "shiny-badge";
+      shinyBadge.textContent = "✨ 色違い";
+      badges.push(shinyBadge);
+    }
+
+    typeList.replaceChildren(...badges);
+    pokemonResult.classList.toggle("is-shiny", Boolean(pokemon.isShiny));
+    resultPanel.classList.toggle("shiny-encounter", Boolean(pokemon.isShiny));
+
     state.currentPokemon = { ...pokemon, typesJa: types };
     state.catching = false;
     getButton.disabled = false;
     getButton.textContent = "GET！";
     $("save-message").textContent = "";
-    updateEncounterMessage(pokemon.pokemonId);
+    updateEncounterMessage(state.currentPokemon);
+  }
+
+  async function barcodeToEncounter(code) {
+    const bytes = new TextEncoder().encode(code);
+    const hash = await crypto.subtle.digest("SHA-256", bytes);
+    const view = new DataView(hash);
+    const number = view.getUint32(0, false);
+    const shinyRoll = view.getUint16(4, false) % 100;
+
+    return {
+      pokemonId: (number % MAX_POKEMON_ID) + 1,
+      isShiny: shinyRoll < SHINY_RATE_PERCENT,
+      shinyRoll
+    };
   }
 
   async function barcodeToPokemonId(code) {
-    const bytes = new TextEncoder().encode(code);
-    const hash = await crypto.subtle.digest("SHA-256", bytes);
-    const number = new DataView(hash).getUint32(0, false);
-    return (number % 151) + 1;
+    return (await barcodeToEncounter(code)).pokemonId;
   }
 
   async function fetchJson(url, signal) {
@@ -162,25 +223,39 @@
     const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
     try {
-      const pokemonId = await barcodeToPokemonId(code);
+      const encounter = await barcodeToEncounter(code);
       const [pokemon, species] = await Promise.all([
-        fetchJson(`${POKEAPI_URL}/pokemon/${pokemonId}`, controller.signal),
-        fetchJson(`${POKEAPI_URL}/pokemon-species/${pokemonId}`, controller.signal)
+        fetchJson(`${POKEAPI_URL}/pokemon/${encounter.pokemonId}`, controller.signal),
+        fetchJson(`${POKEAPI_URL}/pokemon-species/${encounter.pokemonId}`, controller.signal)
       ]);
       const name = species.names?.find(({ language }) => language.name === "ja-Hrkt")
         || species.names?.find(({ language }) => language.name === "ja");
 
+      const normalImageUrl = pokemon.sprites?.other?.["official-artwork"]?.front_default
+        || pokemon.sprites?.front_default
+        || "";
+      const shinyImageUrl = pokemon.sprites?.other?.["official-artwork"]?.front_shiny
+        || pokemon.sprites?.front_shiny
+        || normalImageUrl;
+
       const pokemonData = {
-        pokemonId,
-        nameJa: name?.name,
-        imageUrl: pokemon.sprites?.other?.["official-artwork"]?.front_default
-          || pokemon.sprites?.front_default,
+        pokemonId: encounter.pokemonId,
+        nameJa: name?.name || pokemon.name,
+        imageUrl: encounter.isShiny ? shinyImageUrl : normalImageUrl,
+        normalImageUrl,
+        shinyImageUrl,
+        isShiny: encounter.isShiny,
         typesJa: pokemon.types
           ?.sort((a, b) => a.slot - b.slot)
           .map(({ type }) => TYPE_NAMES_JA[type.name] || type.name)
       };
+
       renderPokemon(pokemonData);
-      console.log("Pokemon appeared:", pokemonData);
+      console.log("Pokemon appeared:", {
+        ...pokemonData,
+        shinyRoll: encounter.shinyRoll,
+        shinyRatePercent: SHINY_RATE_PERCENT
+      });
       setPokemonView("result");
     } catch (error) {
       console.error("Failed to find Pokemon:", error);
@@ -208,13 +283,18 @@
 
   async function catchPokemon() {
     if (!state.currentPokemon || state.catching) return;
+
     state.catching = true;
     getButton.disabled = true;
+    catchOverlay.classList.toggle("is-shiny", Boolean(state.currentPokemon.isShiny));
     catchOverlay.classList.remove("hidden");
     $("catch-count").textContent = "";
     $("caught-message").textContent = "";
     $("catch-ball").className = "catch-ball catch-throw";
-    console.log("Catch animation started:", state.currentPokemon.pokemonId);
+    console.log("Catch animation started:", {
+      pokemonId: state.currentPokemon.pokemonId,
+      isShiny: state.currentPokemon.isShiny
+    });
 
     await wait(600);
     $("catch-ball").className = "catch-ball catch-shake";
@@ -225,56 +305,97 @@
     }
 
     $("catch-count").textContent = "";
-    $("caught-message").textContent = "つかまえた！";
+    $("caught-message").textContent = state.currentPokemon.isShiny
+      ? "✨ 色違いをつかまえた！"
+      : "つかまえた！";
     if (navigator.vibrate) navigator.vibrate([70, 40, 70, 40, 140]);
+
     const outcome = saveCaughtPokemon(state.currentPokemon);
     getButton.textContent = "GETした！";
-    $("encounter-message").textContent = outcome.record.count > 1
-      ? `${outcome.record.count}かいめの GET！`
-      : "はじめて GET！";
+
+    if (state.currentPokemon.isShiny) {
+      $("encounter-message").textContent = outcome.record.shinyCount > 1
+        ? `✨ 色違い ${outcome.record.shinyCount}かいめの GET！`
+        : "✨ はじめての色違い GET！";
+    } else {
+      $("encounter-message").textContent = outcome.record.count > 1
+        ? `${outcome.record.count}かいめの GET！`
+        : "はじめて GET！";
+    }
+
     if (!outcome.saved) {
       $("save-message").textContent = "きろくは できなかったけど、あそべるよ";
     }
+
     await wait(900);
     catchOverlay.classList.add("hidden");
+    catchOverlay.classList.remove("is-shiny");
     state.catching = false;
   }
 
   function renderDex() {
     const caught = readCaughtPokemon();
-    const caughtCount = Object.keys(caught).filter((id) => Number(id) >= 1 && Number(id) <= 151).length;
-    $("dex-progress").textContent = `GET ${caughtCount} / 151`;
+    const caughtIds = Object.keys(caught).filter((id) => Number(id) >= 1 && Number(id) <= MAX_POKEMON_ID);
+    const caughtCount = caughtIds.length;
+    const shinySpeciesCount = caughtIds.filter((id) => Number(caught[id]?.shinyCount) > 0).length;
+
+    $("dex-progress").textContent = `GET ${caughtCount} / ${MAX_POKEMON_ID} ・ ✨ ${shinySpeciesCount}`;
     const cards = [];
-    for (let pokemonId = 1; pokemonId <= 151; pokemonId += 1) {
+
+    for (let pokemonId = 1; pokemonId <= MAX_POKEMON_ID; pokemonId += 1) {
       const pokemon = caught[String(pokemonId)];
+      const shinyCount = Number(pokemon?.shinyCount) || 0;
       const card = document.createElement("article");
-      card.className = `dex-card${pokemon ? " is-caught" : ""}`;
-      const visual = document.createElement(pokemon?.imageUrl ? "img" : "div");
+      card.className = `dex-card${pokemon ? " is-caught" : ""}${shinyCount > 0 ? " has-shiny" : ""}`;
+
+      const displayImageUrl = shinyCount > 0
+        ? (pokemon?.shinyImageUrl || pokemon?.imageUrl || pokemon?.normalImageUrl)
+        : (pokemon?.normalImageUrl || pokemon?.imageUrl);
+      const visual = document.createElement(displayImageUrl ? "img" : "div");
       visual.className = "dex-image";
-      if (pokemon?.imageUrl) {
-        visual.src = pokemon.imageUrl;
-        visual.alt = `${pokemon.nameJa}の画像`;
+
+      if (displayImageUrl) {
+        visual.src = displayImageUrl;
+        visual.alt = `${shinyCount > 0 ? "色違いの" : ""}${pokemon.nameJa}の画像`;
+        visual.loading = "lazy";
       } else {
         visual.textContent = "?";
         visual.setAttribute("aria-hidden", "true");
       }
+
       const number = document.createElement("p");
       number.className = "dex-number";
       number.textContent = `No.${pokemonId}`;
+
       const name = document.createElement("p");
       name.className = "dex-name";
       name.textContent = pokemon?.nameJa || "???";
+
       card.append(visual, number, name);
+
       if (pokemon) {
         const count = document.createElement("p");
         count.className = "dex-count";
         count.textContent = `GET ${pokemon.count}かい`;
         card.append(count);
+
+        if (shinyCount > 0) {
+          const shiny = document.createElement("p");
+          shiny.className = "dex-shiny-count";
+          shiny.textContent = `✨ 色違い ${shinyCount}かい`;
+          card.append(shiny);
+        }
       }
+
       cards.push(card);
     }
+
     $("dex-grid").replaceChildren(...cards);
-    console.log("Pokedex opened:", { caught: caughtCount, total: 151 });
+    console.log("Pokedex opened:", {
+      caught: caughtCount,
+      total: MAX_POKEMON_ID,
+      shinySpecies: shinySpeciesCount
+    });
   }
 
   function openDex() {
@@ -325,6 +446,8 @@
     startPanel.classList.add("hidden");
     errorPanel.classList.add("hidden");
     resultPanel.classList.add("hidden");
+    resultPanel.classList.remove("shiny-encounter");
+    pokemonResult.classList.remove("is-shiny");
     dexPanel.classList.add("hidden");
     $("scan-dex-button").classList.remove("hidden");
     state.confirmed = false;
@@ -384,10 +507,12 @@
     registerDetection,
     resetHits,
     barcodeToPokemonId,
+    barcodeToEncounter,
     readCaughtPokemon,
     saveCaughtPokemon,
     renderDex,
     renderPokemon,
+    constants: { MAX_POKEMON_ID, SHINY_RATE_PERCENT },
     state
   };
 })();
