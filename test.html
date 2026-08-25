@@ -14,28 +14,53 @@
       ["abc", false]
     ];
     const failures = cases.filter(([code, expected]) => t.hasValidEanCheckDigit(code) !== expected);
+
     t.resetHits();
-    const sequence = [t.registerDetection("4901234567894", 100), t.registerDetection("4901234567894", 200), t.registerDetection("4901234567894", 300)];
+    const sequence = [
+      t.registerDetection("4901234567894", 100),
+      t.registerDetection("4901234567894", 200),
+      t.registerDetection("4901234567894", 300)
+    ];
     if (sequence.join() !== "false,false,true") failures.push(["three-hit confirmation", sequence]);
-    const pokemonId = await t.barcodeToPokemonId("4901234567894");
-    if (pokemonId !== 24) failures.push(["SHA-256 mapping", pokemonId]);
-    const before = Number(t.readCaughtPokemon()["24"]?.count) || 0;
-    const testPokemon = { pokemonId: 24, nameJa: "アーボック", imageUrl: "https://example.test/24.png", typesJa: ["どく"] };
+
+    const encounter = await t.barcodeToEncounter("4901234567894");
+    if (encounter.pokemonId !== 949) failures.push(["SHA-256 mapping", encounter]);
+    if (encounter.isShiny !== false || encounter.shinyRoll !== 48) failures.push(["shiny mapping", encounter]);
+    if (t.constants.MAX_POKEMON_ID !== 1025 || t.constants.SHINY_RATE_PERCENT !== 2) failures.push(["constants", t.constants]);
+
+    const beforeRecord = t.readCaughtPokemon()["949"] || {};
+    const beforeCount = Number(beforeRecord.count) || 0;
+    const beforeShinyCount = Number(beforeRecord.shinyCount) || 0;
+    const testPokemon = {
+      pokemonId: 949,
+      nameJa: "テストポケモン",
+      imageUrl: "https://example.test/949.png",
+      normalImageUrl: "https://example.test/949.png",
+      shinyImageUrl: "https://example.test/949-shiny.png",
+      typesJa: ["くさ"],
+      isShiny: false
+    };
+    const shinyPokemon = { ...testPokemon, imageUrl: testPokemon.shinyImageUrl, isShiny: true };
+
     const firstSave = t.saveCaughtPokemon(testPokemon);
-    const secondSave = t.saveCaughtPokemon(testPokemon);
-    if (!firstSave.saved || firstSave.record.count !== before + 1) failures.push(["first localStorage save", firstSave]);
-    if (!secondSave.saved || secondSave.record.count !== before + 2) failures.push(["duplicate count", secondSave]);
-    if (!secondSave.record.firstCaughtAt || secondSave.record.nameJa !== "アーボック") failures.push(["saved fields", secondSave.record]);
+    const shinySave = t.saveCaughtPokemon(shinyPokemon);
+    if (!firstSave.saved || firstSave.record.count !== beforeCount + 1) failures.push(["normal localStorage save", firstSave]);
+    if (!shinySave.saved || shinySave.record.count !== beforeCount + 2) failures.push(["shiny localStorage save", shinySave]);
+    if (shinySave.record.shinyCount !== beforeShinyCount + 1) failures.push(["shiny count", shinySave.record]);
+    if (!shinySave.record.firstCaughtAt || !shinySave.record.firstShinyCaughtAt) failures.push(["saved timestamps", shinySave.record]);
+
     t.renderDex();
-    if (document.querySelectorAll(".dex-card").length !== 151) failures.push(["Pokedex card count", document.querySelectorAll(".dex-card").length]);
-    if (!document.getElementById("dex-progress").textContent.includes("/ 151")) failures.push(["Pokedex progress", document.getElementById("dex-progress").textContent]);
+    if (document.querySelectorAll(".dex-card").length !== 1025) failures.push(["Pokedex card count", document.querySelectorAll(".dex-card").length]);
+    if (!document.getElementById("dex-progress").textContent.includes("/ 1025")) failures.push(["Pokedex progress", document.getElementById("dex-progress").textContent]);
+
     t.renderPokemon(testPokemon);
     document.getElementById("get-button").click();
-    await new Promise((resolve) => setTimeout(resolve, 2900));
-    const caughtThroughButton = t.readCaughtPokemon()["24"];
-    if (caughtThroughButton.count !== before + 3) failures.push(["GET button count", caughtThroughButton.count]);
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    const caughtThroughButton = t.readCaughtPokemon()["949"];
+    if (caughtThroughButton.count !== beforeCount + 3) failures.push(["GET button count", caughtThroughButton.count]);
     if (!document.getElementById("get-button").disabled) failures.push(["GET button duplicate guard"]);
     if (document.getElementById("caught-message").textContent !== "つかまえた！") failures.push(["catch animation message"]);
+
     document.body.dataset.result = failures.length ? "fail" : "pass";
     document.body.textContent = failures.length ? JSON.stringify(failures) : "PASS";
   })();
