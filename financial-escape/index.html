@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <meta name="theme-color" content="#090b10">
+  <title>FINANCIAL ESCAPE | STAGE 01</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app" id="app">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">FINANCIAL ESCAPE</p>
+        <h1>STAGE 01 / RUNWAY</h1>
+      </div>
+      <div class="timer-wrap" aria-live="polite">
+        <span class="timer-label">資金枯渇まで</span>
+        <strong id="timer">24:00:00</strong>
+      </div>
+    </header>
+
+    <section id="intro" class="screen active">
+      <div class="story-panel">
+        <p class="tag">CASE FILE 001</p>
+        <h2>「この会社、明日の朝まで持つと思います？」</h2>
+        <p>あなたは、妙に人を信用しやすい財務分析コンサルタント。匿名の依頼人「K」から、高額報酬の緊急案件を持ち込まれた。</p>
+        <p>指定された経営企画室に入った瞬間、扉がロックされる。机には、ある実在企業の過去の財務資料だけが残されていた。</p>
+        <blockquote>「数字より、人の説明を信じる癖があるそうですね。6つの暗証片を集めたら出してあげます。会社が先に尽きなければ。」</blockquote>
+        <div class="rules">
+          <p><strong>MISSION</strong> 6つの財務パズルを解き、暗証片を回収せよ。</p>
+          <p><strong>DATA</strong> 財務数値は実在企業の公式開示値。会社名と出典は脱出まで封印。</p>
+          <p><strong>STORY</strong> フィクサーKと「24時間で資金枯渇」の設定はフィクション。</p>
+        </div>
+        <button id="startButton" class="primary" type="button">経営企画室に入る</button>
+      </div>
+    </section>
+
+    <section id="game" class="screen">
+      <div class="progress-panel">
+        <div>
+          <span class="muted">回収した暗証片</span>
+          <div id="fragments" class="fragments" aria-live="polite"></div>
+        </div>
+        <div class="progress-count"><span id="solvedCount">0</span>/6</div>
+      </div>
+
+      <nav id="roomNav" class="room-nav" aria-label="パズル一覧"></nav>
+      <section id="puzzleHost" class="puzzle-host"></section>
+
+      <section id="vault" class="vault locked">
+        <p class="tag">FINAL EXIT</p>
+        <h2>非常扉</h2>
+        <p id="vaultMessage">暗証片を6つ揃える必要がある。</p>
+        <button id="escapeButton" class="primary" type="button" disabled>6つの暗証片で解錠</button>
+      </section>
+    </section>
+
+    <section id="ending" class="screen">
+      <div class="ending-panel">
+        <p class="tag">ESCAPED</p>
+        <h2>扉が開いた。</h2>
+        <p>廊下のモニターに、Kから最後のメッセージが映る。</p>
+        <blockquote>「今回は生き残りましたね。次は、もっと説明が上手な会社を用意します。」</blockquote>
+
+        <div class="reveal">
+          <p class="muted">STAGE 01 DATA REVEAL</p>
+          <h3>Japan Airlines Corporation / 2009年3月期</h3>
+          <p>このステージで使った財務数値は、同社のAnnual Report 2009に記載された実数値をベースにしている。</p>
+          <p>同社はその後、2010年1月19日に会社更生手続を申し立てた。ゲーム中の「24時間で資金が尽きる」という設定やフィクサーKは創作。</p>
+          <div class="source-links">
+            <a href="https://www.jal.com/ja/sustainability/report/pdf/ir_2009.pdf" target="_blank" rel="noopener">公式 Annual Report 2009</a>
+            <a href="https://www.jal.com/ja-jp/about/jal_history/index_2001s.html" target="_blank" rel="noopener">公式沿革</a>
+          </div>
+        </div>
+
+        <div class="coming-grid">
+          <article><span>STAGE 02</span><strong>COMING SOON</strong><small>CASE FILE LOCKED</small></article>
+          <article><span>STAGE 03</span><strong>COMING SOON</strong><small>CASE FILE LOCKED</small></article>
+          <article><span>STAGE 04</span><strong>COMING SOON</strong><small>CASE FILE LOCKED</small></article>
+        </div>
+
+        <button id="resetButton" class="secondary" type="button">STAGE 01を最初から</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
