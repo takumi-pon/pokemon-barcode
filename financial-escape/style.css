@@ -1,0 +1,230 @@
+:root {
+  color-scheme: dark;
+  --bg: #090b10;
+  --panel: #11151d;
+  --panel-2: #171c26;
+  --line: #2a3240;
+  --text: #f3f6fb;
+  --muted: #9ba6b5;
+  --accent: #f2c94c;
+  --danger: #ff6b6b;
+  --ok: #67d391;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100%;
+  background: radial-gradient(circle at top, #141923 0, var(--bg) 44%);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans JP", sans-serif;
+}
+
+button, input { font: inherit; }
+button { min-height: 48px; }
+
+.app {
+  width: min(960px, 100%);
+  margin: 0 auto;
+  padding: max(18px, env(safe-area-inset-top)) 16px max(28px, env(safe-area-inset-bottom));
+}
+
+.topbar {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 14px;
+  margin-bottom: 18px;
+}
+
+.eyebrow, .tag {
+  margin: 0 0 6px;
+  color: var(--accent);
+  font: 700 12px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: .14em;
+}
+
+h1, h2, h3, p { margin-top: 0; }
+h1 { font-size: clamp(20px, 4vw, 30px); margin-bottom: 0; }
+h2 { font-size: clamp(24px, 5vw, 38px); line-height: 1.25; }
+h3 { font-size: 20px; }
+p { line-height: 1.75; }
+
+.timer-wrap { text-align: right; flex: 0 0 auto; }
+.timer-label { display: block; color: var(--muted); font-size: 11px; }
+#timer { font: 800 clamp(18px, 4vw, 28px)/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+.screen { display: none; }
+.screen.active { display: block; }
+
+.story-panel, .ending-panel, .puzzle-card, .vault, .progress-panel {
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+}
+
+.story-panel, .ending-panel { padding: clamp(20px, 5vw, 42px); }
+
+blockquote {
+  margin: 20px 0;
+  padding: 16px 18px;
+  border-left: 3px solid var(--accent);
+  background: #0c1017;
+  color: #dce3ec;
+  line-height: 1.8;
+}
+
+.rules {
+  border-top: 1px dashed var(--line);
+  border-bottom: 1px dashed var(--line);
+  padding: 16px 0 2px;
+  margin: 22px 0;
+}
+.rules p { margin-bottom: 12px; }
+.rules strong { color: var(--accent); margin-right: 8px; }
+
+.primary, .secondary, .room-button, .hint-button {
+  border: 0;
+  border-radius: 12px;
+  padding: 12px 16px;
+  cursor: pointer;
+}
+.primary { background: var(--accent); color: #111; font-weight: 800; }
+.secondary { background: #242c38; color: var(--text); }
+.primary:disabled { opacity: .35; cursor: not-allowed; }
+
+.progress-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+.muted { color: var(--muted); }
+.progress-count { font: 800 28px/1 ui-monospace, monospace; }
+.fragments { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 8px; }
+.fragment {
+  min-width: 42px;
+  text-align: center;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  font: 700 14px/1 ui-monospace, monospace;
+}
+.fragment.solved { color: #0b1510; background: var(--ok); border-color: var(--ok); }
+
+.room-nav {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.room-button {
+  min-height: 44px;
+  background: #151a23;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  padding: 8px;
+}
+.room-button.active { color: #111; background: var(--accent); border-color: var(--accent); font-weight: 800; }
+.room-button.done { color: var(--ok); border-color: #315842; }
+
+.puzzle-card { padding: clamp(18px, 4vw, 30px); }
+.puzzle-kicker { color: var(--muted); font: 700 12px/1.4 ui-monospace, monospace; letter-spacing: .08em; }
+
+.memo {
+  border: 1px solid #5a3e28;
+  background: #1b1510;
+  border-radius: 12px;
+  padding: 13px 15px;
+  margin: 18px 0;
+}
+.memo strong { color: #ffca7a; }
+
+.data-table-wrap { overflow-x: auto; margin: 18px 0; }
+table { width: 100%; border-collapse: collapse; min-width: 500px; }
+th, td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: right; }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--muted); font-weight: 600; }
+.negative { color: var(--danger); }
+
+.question {
+  background: var(--panel-2);
+  border-radius: 14px;
+  padding: 16px;
+  margin: 18px 0;
+}
+.question p:last-child { margin-bottom: 0; }
+
+.answer-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: stretch;
+}
+.answer-row input {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #080b10;
+  color: var(--text);
+  padding: 12px 14px;
+  font-size: 16px;
+}
+.answer-row input:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+.feedback { min-height: 26px; margin: 12px 0 0; font-weight: 700; }
+.feedback.ok { color: var(--ok); }
+.feedback.error { color: var(--danger); }
+
+.hint-button { margin-top: 12px; background: transparent; color: var(--muted); border: 1px dashed var(--line); }
+.hint { display: none; color: #c6d0dc; margin: 12px 0 0; }
+.hint.show { display: block; }
+
+.vault { margin-top: 16px; padding: 22px; }
+.vault.locked { opacity: .6; }
+.vault.open { border-color: #315842; opacity: 1; }
+
+.reveal {
+  margin: 24px 0;
+  padding: 18px;
+  background: #0b1017;
+  border: 1px solid #315842;
+  border-radius: 14px;
+}
+.source-links { display: flex; flex-wrap: wrap; gap: 10px; }
+.source-links a { color: var(--accent); }
+
+.coming-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: 22px 0;
+}
+.coming-grid article {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #0d1118;
+}
+.coming-grid span, .coming-grid small { display: block; color: var(--muted); }
+.coming-grid strong { display: block; margin: 8px 0; }
+
+@media (max-width: 620px) {
+  .topbar { align-items: center; }
+  .timer-label { display: none; }
+  .room-nav { grid-template-columns: repeat(3, 1fr); }
+  .answer-row { grid-template-columns: 1fr; }
+  .coming-grid { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
+}
