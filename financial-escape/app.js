@@ -1,321 +1,50 @@
-(() => {
-  'use strict';
-
-  const STORAGE_KEY = 'financialEscapeStage01';
-  const LIMIT_MS = 24 * 60 * 60 * 1000;
-
-  const puzzles = [
-    {
-      id: 1,
-      title: '利益の赤信号',
-      subtitle: 'P/L ROOM',
-      memo: '「売上は約2兆円ある。規模が大きい会社は簡単には危なくならない。」',
-      headers: ['項目', '前期', '当期'],
-      rows: [
-        ['営業収益', '2,230,416', '1,951,158'],
-        ['営業費用', '2,140,403', '2,002,043'],
-        ['営業利益', '90,013', '▲50,884'],
-        ['当期純利益', '16,921', '▲63,194']
-      ],
-      question: 'Kの説明を数字で検証せよ。当期の「営業損失率」を営業収益に対する絶対値で小数1位まで求め、小数点を除いた2桁を入力せよ。例：3.4% → 34。',
-      hint: '営業損失率 = |営業利益| ÷ 営業収益 × 100。売上規模ではなく、売上からどれだけ損失が出ているかを見る。',
-      answer: 26,
-      fragment: '26',
-      success: '営業利益率は約▲2.6%。前年の黒字から赤字へ反転している。'
-    },
-    {
-      id: 2,
-      title: '流動性の扉',
-      subtitle: 'B/S ROOM',
-      memo: '「総資産は1.7兆円もある。短期の支払いなんて問題ない。」',
-      headers: ['項目', '前期', '当期'],
-      rows: [
-        ['流動資産', '810,315', '487,029'],
-        ['固定資産', '1,310,534', '1,262,580'],
-        ['流動負債', '661,229', '649,897'],
-        ['負債合計', '1,651,713', '1,553,907']
-      ],
-      question: '総資産ではなく短期支払能力を確認する。当期の流動比率を計算し、四捨五入した整数を入力せよ。',
-      hint: '流動比率 = 流動資産 ÷ 流動負債 × 100。100%を下回ると、少なくとも単純比較では流動負債が流動資産を上回る。',
-      answer: 75,
-      fragment: '75',
-      success: '流動比率は約74.9%、四捨五入で75%。「総資産が大きい」は短期流動性の答えではない。'
-    },
-    {
-      id: 3,
-      title: '消えた現金',
-      subtitle: 'CASH ROOM',
-      memo: '「現金は減ったが、せいぜい3割程度だ。投資をしている証拠でもある。」',
-      headers: ['項目', '前期', '当期'],
-      rows: [
-        ['現金及び定期預金', '354,977', '163,696'],
-        ['売上債権', '241,349', '170,912'],
-        ['流動資産合計', '810,315', '487,029']
-      ],
-      question: '現金及び定期預金は前期末から何%減少したか。減少率を四捨五入した整数で入力せよ。',
-      hint: '減少率 = (前期 − 当期) ÷ 前期 × 100。「何円減ったか」ではなく「元の残高の何割が消えたか」。',
-      answer: 54,
-      fragment: '54',
-      success: '約53.9%減、四捨五入で54%。1年で現金・定期預金がほぼ半減している。'
-    },
-    {
-      id: 4,
-      title: '一年以内の請求書',
-      subtitle: 'DEBT ROOM',
-      memo: '「負債は前年より減っている。むしろ財務は改善している。」',
-      headers: ['流動負債の内訳', '当期'],
-      rows: [
-        ['買掛金', '190,045'],
-        ['短期借入金', '2,911'],
-        ['1年以内償還予定の社債', '52,000'],
-        ['1年以内返済予定の長期借入金', '128,426'],
-        ['デリバティブ負債', '126,259'],
-        ['その他', '146,734'],
-        ['現金及び定期預金', '163,696']
-      ],
-      question: 'まず「1年以内に返済・償還が来る有利子負債」を抽出して合計せよ。次に、現金及び定期預金がその合計の何%をカバーするか計算し、四捨五入した整数を入力せよ。',
-      hint: 'ここでは短期借入金 + 1年以内償還予定社債 + 1年以内返済予定長期借入金を対象にする。買掛金やデリバティブ負債はこの設問の「有利子負債」から除外。',
-      answer: 89,
-      fragment: '89',
-      success: '対象債務は183,337百万円。現金・定期預金163,696百万円 ÷ 183,337百万円 ≒ 89.3%。'
-    },
-    {
-      id: 5,
-      title: '黒字キャッシュの罠',
-      subtitle: 'C/F ROOM',
-      memo: '「営業CFはプラス31,755。営業で現金を稼げているのだから問題ない。」',
-      headers: ['キャッシュフロー', '前期', '当期'],
-      rows: [
-        ['営業活動CF', '157,331', '31,755'],
-        ['投資活動CF', '▲26,229', '▲105,653'],
-        ['財務活動CF', '36,896', '▲116,767'],
-        ['期末現金同等物', '354,037', '161,751']
-      ],
-      question: '「プラスかマイナスか」だけで判断するな。営業活動CFは前期から何%減少したか。四捨五入した整数を入力せよ。',
-      hint: '営業CF減少率 = (前期営業CF − 当期営業CF) ÷ 前期営業CF × 100。プラスでも急減していれば情報量は大きい。',
-      answer: 80,
-      fragment: '80',
-      success: '営業CFは約79.8%減、四捨五入で80%。プラスという符号だけを見ると変化量を見落とす。'
-    },
-    {
-      id: 6,
-      title: '最後のクッション',
-      subtitle: 'SOLVENCY ROOM',
-      memo: '「負債が97,806減っている。これだけ負債を減らせたなら、財務体質は改善だ。」',
-      headers: ['項目', '前期', '当期'],
-      rows: [
-        ['総資産', '2,122,784', '1,750,679'],
-        ['負債合計', '1,651,713', '1,553,907'],
-        ['純資産', '471,070', '196,771'],
-        ['自己資本比率', '21.4%', '10.0%'],
-        ['D/Eレシオ', '2.0倍', '4.6倍']
-      ],
-      question: '負債だけでなく、損失を吸収するクッションを見る。純資産は前期から何%減少したか。四捨五入した整数を入力せよ。',
-      hint: '純資産減少率 = (前期純資産 − 当期純資産) ÷ 前期純資産 × 100。負債が減っても、それ以上に純資産が毀損すれば安全性は改善とは限らない。',
-      answer: 58,
-      fragment: '58',
-      success: '純資産は約58.2%減。自己資本比率も21.4%から10.0%へ低下し、D/Eレシオは悪化している。'
-    }
-  ];
-
-  const $ = (selector) => document.querySelector(selector);
-  const state = loadState();
-  let timerId = null;
-  let currentPuzzle = state.currentPuzzle || 1;
-
-  function loadState() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return { startedAt: null, solved: {}, currentPuzzle: 1, escaped: false };
-      const parsed = JSON.parse(raw);
-      return {
-        startedAt: parsed.startedAt || null,
-        solved: parsed.solved || {},
-        currentPuzzle: parsed.currentPuzzle || 1,
-        escaped: Boolean(parsed.escaped)
-      };
-    } catch (error) {
-      console.debug('[FinancialEscape] state load failed', error);
-      return { startedAt: null, solved: {}, currentPuzzle: 1, escaped: false };
-    }
-  }
-
-  function saveState() {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      console.debug('[FinancialEscape] progress saved', state);
-    } catch (error) {
-      console.debug('[FinancialEscape] state save failed', error);
-    }
-  }
-
-  function setScreen(id) {
-    document.querySelectorAll('.screen').forEach((screen) => screen.classList.remove('active'));
-    $(id).classList.add('active');
-  }
-
-  function startGame() {
-    if (!state.startedAt || Date.now() - state.startedAt >= LIMIT_MS) {
-      state.startedAt = Date.now();
-      state.solved = {};
-      state.escaped = false;
-      currentPuzzle = 1;
-      state.currentPuzzle = 1;
-    }
-    saveState();
-    setScreen('#game');
-    renderAll();
-    startTimer();
-    console.log('[FinancialEscape] Stage 01 started');
-  }
-
-  function startTimer() {
-    clearInterval(timerId);
-    updateTimer();
-    timerId = setInterval(updateTimer, 1000);
-  }
-
-  function updateTimer() {
-    if (!state.startedAt || state.escaped) return;
-    const left = Math.max(0, LIMIT_MS - (Date.now() - state.startedAt));
-    const hours = Math.floor(left / 3600000);
-    const minutes = Math.floor((left % 3600000) / 60000);
-    const seconds = Math.floor((left % 60000) / 1000);
-    $('#timer').textContent = [hours, minutes, seconds].map((n) => String(n).padStart(2, '0')).join(':');
-    if (left === 0) {
-      clearInterval(timerId);
-      $('#timer').textContent = '00:00:00';
-      alert('TIME OVER\n資金は尽きた。STAGE 01をリセットして再挑戦してください。');
-    }
-  }
-
-  function renderAll() {
-    renderFragments();
-    renderNav();
-    renderPuzzle(currentPuzzle);
-    renderVault();
-  }
-
-  function renderFragments() {
-    $('#fragments').innerHTML = puzzles.map((p) => {
-      const solved = state.solved[p.id];
-      return `<span class="fragment ${solved ? 'solved' : ''}">${solved ? p.fragment : '??'}</span>`;
-    }).join('');
-    $('#solvedCount').textContent = Object.keys(state.solved).length;
-  }
-
-  function renderNav() {
-    $('#roomNav').innerHTML = puzzles.map((p) => {
-      const classes = ['room-button'];
-      if (p.id === currentPuzzle) classes.push('active');
-      if (state.solved[p.id]) classes.push('done');
-      return `<button type="button" class="${classes.join(' ')}" data-room="${p.id}">${state.solved[p.id] ? '✓ ' : ''}${String(p.id).padStart(2, '0')}</button>`;
-    }).join('');
-
-    $('#roomNav').querySelectorAll('[data-room]').forEach((button) => {
-      button.addEventListener('click', () => {
-        currentPuzzle = Number(button.dataset.room);
-        state.currentPuzzle = currentPuzzle;
-        saveState();
-        renderAll();
-      });
-    });
-  }
-
-  function renderPuzzle(id) {
-    const p = puzzles.find((item) => item.id === id);
-    const solved = Boolean(state.solved[id]);
-    const rows = p.rows.map((row) => `<tr>${row.map((cell, index) => `<td class="${String(cell).includes('▲') ? 'negative' : ''}">${cell}</td>`).join('')}</tr>`).join('');
-    const headers = `<tr>${p.headers.map((h) => `<th>${h}</th>`).join('')}</tr>`;
-
-    $('#puzzleHost').innerHTML = `
-      <article class="puzzle-card">
-        <p class="puzzle-kicker">ROOM ${String(p.id).padStart(2, '0')} / ${p.subtitle}</p>
-        <h2>${p.title}</h2>
-        <div class="memo"><strong>K'S MEMO</strong><br>${p.memo}</div>
-        <div class="data-table-wrap"><table><thead>${headers}</thead><tbody>${rows}</tbody></table></div>
-        <div class="question"><p>${p.question}</p></div>
-        <form id="answerForm">
-          <div class="answer-row">
-            <input id="answerInput" inputmode="decimal" autocomplete="off" aria-label="回答" placeholder="数字を入力" ${solved ? 'disabled' : ''}>
-            <button class="primary" type="submit" ${solved ? 'disabled' : ''}>解析する</button>
-          </div>
-          <p id="feedback" class="feedback ${solved ? 'ok' : ''}" aria-live="polite">${solved ? `解除済み。暗証片［${p.fragment}］ ${p.success}` : ''}</p>
-        </form>
-        <button id="hintButton" class="hint-button" type="button">ヒントを見る</button>
-        <p id="hint" class="hint">${p.hint}</p>
-      </article>`;
-
-    $('#hintButton').addEventListener('click', () => {
-      $('#hint').classList.toggle('show');
-    });
-
-    $('#answerForm').addEventListener('submit', (event) => {
-      event.preventDefault();
-      if (solved) return;
-      const input = $('#answerInput').value.trim().replace(/[%％,，\s]/g, '');
-      const value = Number(input);
-      const feedback = $('#feedback');
-      if (!Number.isFinite(value)) {
-        feedback.textContent = '数字として読めない。資料を見直せ。';
-        feedback.className = 'feedback error';
-        return;
-      }
-      if (value === p.answer) {
-        state.solved[p.id] = true;
-        saveState();
-        console.log(`[FinancialEscape] Room ${p.id} solved -> ${p.fragment}`);
-        renderAll();
-      } else {
-        feedback.textContent = 'LOCKED。Kの説明に引っ張られていないか。計算と分母を確認せよ。';
-        feedback.className = 'feedback error';
-      }
-    });
-  }
-
-  function renderVault() {
-    const solved = Object.keys(state.solved).length;
-    const open = solved === puzzles.length;
-    $('#vault').classList.toggle('locked', !open);
-    $('#vault').classList.toggle('open', open);
-    $('#escapeButton').disabled = !open;
-    $('#vaultMessage').textContent = open
-      ? `暗証片 ${puzzles.map((p) => p.fragment).join(' - ')} が揃った。扉のロックが解除できる。`
-      : `あと ${puzzles.length - solved} 個の暗証片が必要。`;
-  }
-
-  function escape() {
-    if (Object.keys(state.solved).length !== puzzles.length) return;
-    state.escaped = true;
-    saveState();
-    clearInterval(timerId);
-    setScreen('#ending');
-    console.log('[FinancialEscape] Stage 01 escaped');
-  }
-
-  function resetGame() {
-    localStorage.removeItem(STORAGE_KEY);
-    state.startedAt = null;
-    state.solved = {};
-    state.currentPuzzle = 1;
-    state.escaped = false;
-    currentPuzzle = 1;
-    $('#timer').textContent = '24:00:00';
-    setScreen('#intro');
-    console.log('[FinancialEscape] Stage 01 reset');
-  }
-
-  $('#startButton').addEventListener('click', startGame);
-  $('#escapeButton').addEventListener('click', escape);
-  $('#resetButton').addEventListener('click', resetGame);
-
-  if (state.escaped) {
-    setScreen('#ending');
-  } else if (state.startedAt && Date.now() - state.startedAt < LIMIT_MS) {
-    setScreen('#game');
-    renderAll();
-    startTimer();
-  } else {
-    setScreen('#intro');
-  }
+(()=>{'use strict';
+const KEY='financialEscapeV3Stage01';
+const SEC='https://www.sec.gov/Archives/edgar/data/1310067/000131006718000006/shld201710k.htm';
+const rooms=[
+{id:1,label:'ROOM 01 / FILE VAULT',sub:'情報にはコストがある',speaker:'K / 霧鐘 卿',portrait:'fixer',line:'全部読むんですか？ 時間も資金も有限ですよ。必要な資料だけ選べる人が、良いコンサルです。',title:'資料棚から3つの封印を抜け',text:'7ファイルのうち、開くたびRunwayを4消費。中に隠れた ENGINE / LIQUIDITY / WALL の3封印を集める。',hint:'事業が稼いでいるか、今日払えるか、近い将来何が来るか。3つの視点が必要。'},
+{id:2,label:'ROOM 02 / LIQUIDITY STAIR',sub:'資産の“額”ではなく“換金距離”',speaker:'御影 澪',portrait:'cfo',line:'流動資産という箱に全部入れると、在庫も現金も同じに見える。でも、今夜支払いに使える順番は違う。',title:'流動性の階段を作れ',text:'5枚の資産カードを「今すぐ支払いに使いやすい → 使いにくい」の順に並べる。',hint:'Cash → Receivable → Inventory → PP&E → Intangible の順を考える。'},
+{id:3,label:'ROOM 03 / CASH TANK',sub:'期末現金が増えた理由を再現する',speaker:'K / 霧鐘 卿',portrait:'fixer',line:'ほら、キャッシュは286から336へ増えた。数字は嘘をつきませんよ。',title:'キャッシュタンクを336に戻せ',text:'Start 286から、Operating / Investing / Financing の3本の配管を正しい機構へ接続し、期末336を再現する。',hint:'2017年の営業CFは▲1,842、投資CFは＋1,894、財務CFは▲2。'},
+{id:4,label:'ROOM 04 / DEBT CLOCK',sub:'満期の壁を論理で復元',speaker:'御影 澪',portrait:'cfo',line:'満期表の年だけ焼け落ちた。数字は残ってる。並べ直せば、どの年が崖なのか分かる。',title:'債務時計を復元せよ',text:'6枚の債務額を2018 / 2019 / 2020 / 2021 / 2022 / それ以降へ配置する。下の断片だけが手掛かり。',hint:'2020が最大。2018は979、2019は2018より342少ない。2021と2022は同額の最小値。'},
+{id:5,label:'ROOM 05 / ASSET ALTAR',sub:'“投資CFプラス”の正体',speaker:'K / 霧鐘 卿',portrait:'fixer',line:'投資キャッシュフローが19億ドル近くプラス。投資が成功してる証拠ですね。',title:'＋1,894の祭壇を完成させろ',text:'投資CF＋1,894を作った4つの構成要素だけを、7枚の取引札から選んで祭壇へ置く。',hint:'資産・ブランド・債権の売却は投資CFの流入。設備投資は投資CFの流出。'},
+{id:6,label:'ROOM 06 / CAUSAL GATE',sub:'最後は“正解”ではなく構造',speaker:'相良 イツキ',portrait:'protagonist',line:'もう単発の数字じゃない。会社がどう延命していたか、その構造を一本の鎖にする。',title:'因果の門をつなげ',text:'6枚の証拠カードを、もっとも防御可能な診断ストーリーの順に並べる。',hint:'売上縮小 → 営業赤字 → 営業CF流出 → 資産売却で穴埋め → 近い債務満期 → 流動性危機。'}
+];
+const state=load();let selected=null;
+const $=s=>document.querySelector(s);
+function fresh(){return{status:'idle',room:0,runway:100,evidence:[],r1:{opened:[],seals:[]},r2:{order:[]},r3:{slots:{}},r4:{map:{}},r5:{selected:[]},r6:{order:[]}}}
+function load(){try{return Object.assign(fresh(),JSON.parse(localStorage.getItem(KEY)||'{}'))}catch{return fresh()}}
+function save(){localStorage.setItem(KEY,JSON.stringify(state))}
+function screen(id){document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));$('#'+id).classList.add('active')}
+function cost(n,msg){state.runway=Math.max(0,state.runway-n);save();renderStatus();if(msg)feedback('bad',msg+` Runway -${n}`);if(state.runway<=0)setTimeout(()=>screen('gameover'),500)}
+function renderStatus(){if($('#runway')){$('#runway').textContent=state.runway;$('#runwayBar').style.width=state.runway+'%';$('#evidenceCount').textContent=state.evidence.length+' / 6';$('#roomCount').textContent=(state.room+1)+' / 6'}}
+function feedback(kind,msg){const el=$('#feedback');el.className='feedback '+kind;el.innerHTML='<p>'+msg+'</p>'}
+function hideFeedback(){$('#feedback').className='feedback hidden';$('#feedback').innerHTML=''}
+function addEvidence(code,name,summary){if(!state.evidence.some(e=>e.code===code))state.evidence.push({code,name,summary});save();renderStatus()}
+function nextRoom(){state.room++;save();if(state.room>=rooms.length){state.status='cleared';save();renderEnding();screen('ending')}else renderRoom()}
+function complete(code,name,summary,msg){addEvidence(code,name,summary);feedback('good',msg+`<br><br><strong>${code} ${name}</strong><br>${summary}`);setTimeout(nextRoom,1300)}
+function openOverlay(title,html){$('#overlayTitle').textContent=title;$('#overlayBody').innerHTML=html;$('#overlay').classList.remove('hidden')}
+function lore(){return`<div class="evidencegrid"><div class="evidence"><strong>相良 イツキ</strong>「説明が論理的」に聞こえると警戒が解ける。今回の事件は、その弱点をKが意図的に突いている。</div><div class="evidence"><strong>K / 霧鐘 卿</strong>破綻企業の直前データを集める謎のフィクサー。嘘はつかない。都合のいい事実だけを言う。</div><div class="evidence"><strong>御影 澪</strong>CFO。数字を隠してはいない。ただ、社内では“資産売却で現金が作れているうちは大丈夫”という空気に押されていた。</div><div class="evidence"><strong>STAGE 01</strong>テーマは「キャッシュ残高の増加に騙されるな」。事業CFと資産売却CFを分けて考える。</div></div>`}
+function howto(){return`<p>V3では4択問題はありません。各部屋の仕掛けを直接操作します。</p><ul><li>ファイルを開く、誤った機構を作動させるなどの行動でRunwayが減ります。</li><li>カードはタップしてからスロットをタップする方式。iPhoneでもドラッグ不要です。</li><li>各部屋のルールは違います。財務数値は“回答対象”ではなく“パズル部品”です。</li><li>6証拠を集めたら会社名と史実を公開します。</li></ul>`}
+function start(){state.status='intro';save();screen('intro')}
+function enter(){if(state.status!=='playing'){Object.assign(state,fresh(),{status:'playing'});save()}screen('game');renderRoom()}
+function renderRoom(){hideFeedback();selected=null;const r=rooms[state.room];$('#roomLabel').textContent=r.label;$('#roomSub').textContent=r.sub;$('#speakerName').textContent=r.speaker;$('#speakerLine').textContent=r.line;$('#speakerPortrait').className='portrait small '+r.portrait;$('#mechanismTitle').textContent=r.title;$('#mechanismText').textContent=r.text;$('#hintBox').textContent=r.hint;$('#hintBox').classList.add('hidden');renderStatus();({1:room1,2:room2,3:room3,4:room4,5:room5,6:room6}[r.id])()}
+function room1(){const files=[
+{id:'ops',name:'FY17_Operations.pdf',cost:4,html:'<strong>OPERATING ENGINE</strong><br>Net cash used in operating activities: <b>▲1,842</b> million.<br><span class="muted">封印: ENGINE</span>',seal:'ENGINE'},
+{id:'bs',name:'Liquidity_Snapshot.xlsx',cost:4,html:'Cash: <b>182</b> / Current assets: 3,812 / Current liabilities: <b>4,915</b> million.<br><span class="muted">封印: LIQUIDITY</span>',seal:'LIQUIDITY'},
+{id:'debt',name:'Debt_Maturity.note',cost:4,html:'2018–2020に大きな満期。2018: 979 / 2019: 637 / 2020: 1,471 million.<br><span class="muted">封印: WALL</span>',seal:'WALL'},
+{id:'brand',name:'Brand_Value.pptx',cost:4,html:'Trade names & intangibles: 1,168 million. ブランドは資産だが、今日の支払原資ではない。'},
+{id:'photo',name:'Store_Photos.zip',cost:4,html:'閉店店舗の写真。重要そうだが、この部屋の封印はない。'},
+{id:'ceo',name:'CEO_Message.txt',cost:4,html:'「変革は順調。資産ポートフォリオ最適化で価値を解放する。」'},
+{id:'sales',name:'Sales_Trend.csv',cost:4,html:'Revenue: 25,146 → 22,138 → 16,702 million.'}
+];
+const w=$('#workspace');w.innerHTML=`<p class="muted">開くたびRunway -4。3つの封印を抜け。</p><div class="filegrid" id="files"></div><div id="docview" class="docview">ファイルを選択</div><div class="socketrow"><div class="socket"><strong>ENGINE</strong><span>${state.r1.seals.includes('ENGINE')?'SET':'EMPTY'}</span></div><div class="socket"><strong>LIQUIDITY</strong><span>${state.r1.seals.includes('LIQUIDITY')?'SET':'EMPTY'}</span></div><div class="socket"><strong>WALL</strong><span>${state.r1.seals.includes('WALL')?'SET':'EMPTY'}</span></div></div>`;const fg=$('#files');files.forEach(f=>{const b=document.createElement('button');b.className='file '+(state.r1.opened.includes(f.id)?'opened':'');b.innerHTML=`📁 <strong>${f.name}</strong><small>${state.r1.opened.includes(f.id)?'OPENED':'UNOPENED'}</small>`;b.onclick=()=>{if(!state.r1.opened.includes(f.id)){state.r1.opened.push(f.id);cost(f.cost,'調査コストが発生した。')}$('#docview').innerHTML=f.html;if(f.seal&&!state.r1.seals.includes(f.seal)){state.r1.seals.push(f.seal);save()}room1();if(state.r1.seals.length===3)setTimeout(()=>complete('E-01','Three Critical Views','営業・流動性・満期を別々に見ると、危機の輪郭が立つ。','3つの封印が同時に光った。'),400)};fg.appendChild(b)})}
+function room2(){const items=[['cash','Cash 182'],['ar','Receivables 343'],['inv','Inventory 2,798'],['ppe','PP&E 1,729'],['int','Intangibles 1,168']];const correct=['cash','ar','inv','ppe','int'];const w=$('#workspace');w.innerHTML=`<p class="muted">カードをタップ → スロットをタップ。</p><div class="cards" id="liqPool"></div><div class="slots" id="liqSlots"></div>`;const pool=$('#liqPool');items.filter(i=>!state.r2.order.includes(i[0])).forEach(i=>{const b=document.createElement('button');b.className='liqcard';b.textContent=i[1];b.onclick=()=>{selected=i[0];document.querySelectorAll('.liqcard').forEach(x=>x.classList.remove('selected'));b.classList.add('selected')};pool.appendChild(b)});const slots=$('#liqSlots');for(let k=0;k<5;k++){const s=document.createElement('button');s.className='slot';const id=state.r2.order[k];const label=items.find(i=>i[0]===id)?.[1]||'EMPTY';s.innerHTML=`<strong>${k+1}. ${k===0?'MOST LIQUID':k===4?'LEAST LIQUID':''}</strong>${label}`;s.onclick=()=>{if(id){state.r2.order.splice(k,1);save();room2();return}if(selected){state.r2.order[k]=selected;selected=null;save();room2()}};slots.appendChild(s)}const c=$('#roomControls');c.innerHTML='<div class="actions"><button id="check2" class="primary">階段を起動</button><button id="clear2" class="ghost">リセット</button></div>';$('#clear2').onclick=()=>{state.r2.order=[];save();room2()};$('#check2').onclick=()=>{if(JSON.stringify(state.r2.order)===JSON.stringify(correct))complete('E-02','Liquidity Distance','流動資産3,812のうち在庫2,798。額面の“流動”と現金距離は違う。','階段が上昇した。');else cost(8,'資産を現金として扱う順序を誤った。')};}
+function room3(){const vals={op:['Operating','▲1,842'],inv:['Investing','+1,894'],fin:['Financing','▲2']};const correct={engine:'op',asset:'inv',debt:'fin'};const w=$('#workspace');w.innerHTML=`<div class="tank"><div id="water" class="water"></div><div id="tankLabel" class="tanklabel">Start 286</div></div><div class="tokenrow" id="pipePool"></div><div class="pipegrid"><button class="pipe" data-slot="engine"><strong>ENGINE</strong><span id="s-engine">${state.r3.slots.engine?vals[state.r3.slots.engine][0]:'EMPTY'}</span></button><button class="pipe" data-slot="asset"><strong>ASSET GATE</strong><span id="s-asset">${state.r3.slots.asset?vals[state.r3.slots.asset][0]:'EMPTY'}</span></button><button class="pipe" data-slot="debt"><strong>DEBT GATE</strong><span id="s-debt">${state.r3.slots.debt?vals[state.r3.slots.debt][0]:'EMPTY'}</span></button><div class="pipe"><strong>END</strong><span>336</span></div></div>`;const pool=$('#pipePool');Object.entries(vals).filter(([k])=>!Object.values(state.r3.slots).includes(k)).forEach(([k,v])=>{const b=document.createElement('button');b.className='token';b.innerHTML=`${v[0]} <strong>${v[1]}</strong>`;b.onclick=()=>{selected=k;document.querySelectorAll('.token').forEach(x=>x.classList.remove('selected'));b.classList.add('selected')};pool.appendChild(b)});document.querySelectorAll('[data-slot]').forEach(b=>b.onclick=()=>{const slot=b.dataset.slot;if(state.r3.slots[slot]){delete state.r3.slots[slot];save();room3();return}if(selected){state.r3.slots[slot]=selected;selected=null;save();room3()}});const c=$('#roomControls');c.innerHTML='<div class="actions"><button id="runTank" class="primary">配管を開く</button><button id="clear3" class="ghost">リセット</button></div>';$('#clear3').onclick=()=>{state.r3.slots={};save();room3()};$('#runTank').onclick=()=>{if(JSON.stringify(state.r3.slots)===JSON.stringify(correct)){const end=286-1842+1894-2;$('#water').style.height='72%';$('#tankLabel').textContent='End '+end;complete('E-03','Asset-Fed Cash','営業で▲1,842を燃やしながら、投資CF＋1,894で期末現金を維持していた。','タンクは336に戻った。だが水源は“事業”ではなかった。')}else cost(10,'配管が逆流した。')};}
+function room4(){const values=[979,637,1471,3,3,312];const years=['2018','2019','2020','2021','2022','Later'];const correct={2018:979,2019:637,2020:1471,2021:3,2022:3,Later:312};const used=Object.values(state.r4.map);const w=$('#workspace');w.innerHTML=`<div class="clues"><div class="clue">2020年が最大。</div><div class="clue">2018年は979。2019年は2018年より342少ない。</div><div class="clue">2021年と2022年は同額で最小。</div><div class="clue">それ以降は312。</div></div><div class="timelinevals" id="debtPool"></div><div class="timeline" id="timeline"></div>`;const pool=$('#debtPool');values.forEach((v,idx)=>{if(used.filter(x=>x===v).length < values.slice(0,idx+1).filter(x=>x===v).length){const b=document.createElement('button');b.className='debtcard';b.textContent=v;b.onclick=()=>{selected=v;document.querySelectorAll('.debtcard').forEach(x=>x.classList.remove('selected'));b.classList.add('selected')};pool.appendChild(b)}});const tl=$('#timeline');years.forEach(y=>{const b=document.createElement('button');b.className='yearslot';b.innerHTML=`<b>${y}</b>${state.r4.map[y]??'EMPTY'}`;b.onclick=()=>{if(state.r4.map[y]!==undefined){delete state.r4.map[y];save();room4();return}if(selected!==null){state.r4.map[y]=selected;selected=null;save();room4()}};tl.appendChild(b)});const c=$('#roomControls');c.innerHTML='<div class="actions"><button id="check4" class="primary">時計を動かす</button><button id="clear4" class="ghost">リセット</button></div>';$('#clear4').onclick=()=>{state.r4.map={};save();room4()};$('#check4').onclick=()=>{const ok=years.every(y=>state.r4.map[y]===correct[y]);if(ok)complete('E-04','Debt Wall','2018〜2020だけで3,087百万ドルの満期。特に2020年1,471が大きい。','時計の針が2020で大きく跳ねた。');else cost(10,'満期時計を誤設定した。')};}
+function room5(){const tx=[['sale','Property & investments +1,109',1109],['craft','Craftsman sale +572',572],['recv','Receivables sale +293',293],['capex','Capex ▲80',-80],['op','Operating CF ▲1,842',-1842],['debt','Debt issuance +1,020',1020],['repay','Debt repayment ▲1,356',-1356]];const correct=['sale','craft','recv','capex'];const w=$('#workspace');w.innerHTML=`<p class="muted">祭壇の表示は <strong>Investing CF +1,894</strong>。構成要素だけを選べ。</p><div class="equationpool" id="eqPool"></div><div class="equation" id="equation">Selected total = 0</div>`;const pool=$('#eqPool');tx.forEach(([id,name])=>{const b=document.createElement('button');b.className='eqcard '+(state.r5.selected.includes(id)?'selected':'');b.textContent=name;b.onclick=()=>{const i=state.r5.selected.indexOf(id);if(i>=0)state.r5.selected.splice(i,1);else state.r5.selected.push(id);save();room5()};pool.appendChild(b)});const total=state.r5.selected.reduce((s,id)=>s+tx.find(t=>t[0]===id)[2],0);$('#equation').textContent='Selected total = '+(total>=0?'+':'')+total;const c=$('#roomControls');c.innerHTML='<div class="actions"><button id="check5" class="primary">祭壇を起動</button><button id="clear5" class="ghost">リセット</button></div>';$('#clear5').onclick=()=>{state.r5.selected=[];save();room5()};$('#check5').onclick=()=>{const a=[...state.r5.selected].sort().join(','),b=[...correct].sort().join(',');if(a===b&&total===1894)complete('E-05','Liquidation Engine','投資CF＋1,894の主因は、資産・ブランド・債権の売却だった。','祭壇が開いた。“投資の成功”ではなく“売却による現金化”だった。');else cost(12,'投資CFと他区分の取引を混ぜた。')};}
+function room6(){const cards=[['rev','Revenue 25,146 → 16,702'],['loss','Operating loss ▲430'],['ocf','Operating CF ▲1,842'],['asset','Asset disposals → Investing CF +1,894'],['debt','2018–2020 debt wall'],['liq','Liquidity crisis / restructuring risk']];const correct=['rev','loss','ocf','asset','debt','liq'];const w=$('#workspace');w.innerHTML=`<div class="chainpool" id="chainPool"></div><div class="chain" id="chainSlots"></div>`;const pool=$('#chainPool');cards.filter(c=>!state.r6.order.includes(c[0])).forEach(c=>{const b=document.createElement('button');b.className='chaincard';b.textContent=c[1];b.onclick=()=>{selected=c[0];document.querySelectorAll('.chaincard').forEach(x=>x.classList.remove('selected'));b.classList.add('selected')};pool.appendChild(b)});const slots=$('#chainSlots');for(let k=0;k<6;k++){const id=state.r6.order[k],label=cards.find(c=>c[0]===id)?.[1]||'EMPTY';const b=document.createElement('button');b.className='slot';b.innerHTML=`<strong>${k+1}</strong>${label}`;b.onclick=()=>{if(id){state.r6.order.splice(k,1);save();room6();return}if(selected){state.r6.order[k]=selected;selected=null;save();room6()}};slots.appendChild(b)}const c=$('#roomControls');c.innerHTML='<div class="actions"><button id="check6" class="primary">因果の門を開く</button><button id="clear6" class="ghost">リセット</button></div>';$('#clear6').onclick=()=>{state.r6.order=[];save();room6()};$('#check6').onclick=()=>{if(JSON.stringify(state.r6.order)===JSON.stringify(correct))complete('E-06','The Asset Eater','事業縮小と営業CF流出を、資産売却で埋めながら近い債務満期へ進む延命構造。','鎖が一本につながった。');else cost(15,'因果を取り違えた。')};}
+function showEvidence(){const html=state.evidence.length?`<div class="evidencegrid">${state.evidence.map(e=>`<div class="evidence"><strong>${e.code} ${e.name}</strong>${e.summary}</div>`).join('')}</div>`:'<p>まだ証拠はない。</p>';openOverlay('証拠一覧',html)}
+function renderEnding(){const ev=state.evidence.map(e=>`<li><strong>${e.code}</strong> ${e.name} — ${e.summary}</li>`).join('');$('#endingText').innerHTML=`<p><strong>相良</strong>「キャッシュが増えた事実だけならKは嘘をついていない。でも、その水源は事業じゃなかった。」</p><p>売上縮小 → 営業損失 → 営業CF流出。それを資産・ブランド・債権の売却で補いながら、大きな債務満期へ進んでいた。</p><ul>${ev}</ul><p><strong>K</strong>「お見事。次は、利益そのものが幻の会社にしましょう。」</p><div class="coming"><div>STAGE 02 / PHANTOM EARNINGS — COMING SOON</div><div>STAGE 03 / ACQUISITION CRYPT — COMING SOON</div></div>`;$('#reveal').innerHTML=`<h3>DATA REVEAL</h3><p><strong>Sears Holdings Corporation / Fiscal 2017</strong></p><p>公式10-Kでは、Revenue 16,702m、Operating CF ▲1,842m、Investing CF +1,894m、期末Cash & restricted cash 336m。2018〜2020年の債務満期は979m / 637m / 1,471m。</p><p>同社と一部子会社は2018年10月15日にChapter 11を申請した。</p><p><a href="${SEC}" target="_blank" rel="noopener">Official SEC 10-K</a></p><p class="fine">人物・塔・Runwayの設定はフィクション。</p>`}
+$('#start').onclick=start;$('#enter').onclick=enter;document.querySelectorAll('.back').forEach(b=>b.onclick=()=>screen('title'));$('#lore').onclick=()=>openOverlay('人物と世界観',lore());$('#endingLore').onclick=()=>openOverlay('人物と世界観',lore());$('#howto').onclick=()=>openOverlay('遊び方',howto());$('#closeOverlay').onclick=()=>$('#overlay').classList.add('hidden');$('#overlay').onclick=e=>{if(e.target.id==='overlay')$('#overlay').classList.add('hidden')};$('#hintBtn').onclick=()=>$('#hintBox').classList.toggle('hidden');$('#evidenceBtn').onclick=showEvidence;$('#retry').onclick=()=>{Object.assign(state,fresh());save();screen('title')};$('#reset').onclick=()=>{Object.assign(state,fresh());save();screen('title')};
+if(state.status==='playing'){screen('game');renderRoom()}else if(state.status==='cleared'){renderEnding();screen('ending')}else screen('title');
 })();
